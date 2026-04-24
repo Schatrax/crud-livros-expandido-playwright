@@ -1,88 +1,108 @@
 import { test, expect } from '@playwright/test';
 
 async function login(page) {
-  page.once('dialog', async dialog => {
-    console.log('Login dialog:', dialog.message());
-    await dialog.accept();
-  });
+    page.once('dialog', async dialog => {
+        console.log('Login dialog:', dialog.message());
+        await dialog.accept();
+    });
 
-  await page.goto('/login.html');
-  await page.getByRole('textbox', { name: 'Email:', exact: true }).fill('admin@biblioteca.com');
-  await page.getByRole('textbox', { name: 'Senha:', exact: true }).fill('123456');
-  await page.getByRole('button', { name: /entrar/i }).click();
-  await expect(page).toHaveURL(/dashboard\.html/);
+    await page.goto('/login.html');
+    await page.getByRole('textbox', { name: 'Email:', exact: true }).fill('admin@biblioteca.com');
+    await page.getByRole('textbox', { name: 'Senha:', exact: true }).fill('123456');
+    await page.getByRole('button', { name: /entrar/i }).click();
+    await expect(page).toHaveURL(/dashboard\.html/);
+}
+
+async function createBook(request) {
+    const livro = {
+        nome: `Livro Favorito ${Date.now()}`,
+        autor: 'Autor Favorito',
+        paginas: 180,
+        descricao: 'Livro criado para testes de favoritos',
+        imagemUrl: 'https://exemplo.com/favorito.jpg'
+    };
+
+    const response = await request.post('/livros', { data: livro });
+    expect(response.status()).toBe(201);
+
+    const createdBook = await response.json();
+    console.log('Livro criado para favorito:', createdBook);
+
+    return createdBook;
 }
 
 test.describe('Favoritos UI', () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page);
-  });
-
-  test('CT-FE-011 - Adicionar livro aos favoritos', async ({ page }) => {
-    await page.goto('/detalhes.html?id=2');
-
-    page.once('dialog', async dialog => {
-      console.log('Add favorite alert:', dialog.message());
-      expect(dialog.message()).toMatch(/favoritos|favorito/i);
-      await dialog.accept();
+    test.beforeEach(async ({ page }) => {
+        await login(page);
     });
 
-    await page.getByRole('button', { name: /adicionar aos favoritos/i }).click();
+    test('CT-FE-011 - Adicionar livro aos favoritos', async ({ page, request }) => {
+        const createdBook = await createBook(request);
 
-    await expect(page.getByRole('button', { name: /remover dos favoritos/i })).toBeVisible();
+        await page.goto(`/detalhes.html?id=${createdBook.id}`);
 
-    console.log('Favorite button changed to remove');
-  });
+        page.once('dialog', async dialog => {
+            console.log('Add favorite alert:', dialog.message());
+            expect(dialog.message()).toMatch(/favoritos|favorito/i);
+            await dialog.accept();
+        });
 
-  test('CT-FE-012 - Remover livro dos favoritos', async ({ page }) => {
-    await page.goto('/detalhes.html?id=2');
+        await page.getByRole('button', { name: /adicionar aos favoritos/i }).click();
 
-    const addButton = page.getByRole('button', { name: /adicionar aos favoritos/i });
-    const removeButton = page.getByRole('button', { name: /remover dos favoritos/i });
+        await expect(page.getByRole('button', { name: /remover dos favoritos/i })).toBeVisible();
 
-    if (await addButton.isVisible().catch(() => false)) {
-      page.once('dialog', async dialog => {
-        console.log('Initial add favorite alert:', dialog.message());
-        await dialog.accept();
-      });
-
-      await addButton.click();
-      await expect(removeButton).toBeVisible();
-    }
-
-    page.once('dialog', async dialog => {
-      console.log('Remove favorite alert:', dialog.message());
-      expect(dialog.message()).toMatch(/removido|favoritos/i);
-      await dialog.accept();
+        console.log('Favorite button changed to remove');
     });
 
-    await removeButton.click();
+    test('CT-FE-012 - Remover livro dos favoritos', async ({ page, request }) => {
+        const createdBook = await createBook(request);
 
-    await expect(addButton).toBeVisible();
+        await page.goto(`/detalhes.html?id=${createdBook.id}`);
 
-    console.log('Favorite removed and button returned to add');
-  });
+        page.once('dialog', async dialog => {
+            console.log('Initial add favorite alert:', dialog.message());
+            await dialog.accept();
+        });
 
-  test('CT-FE-013 - Listar livros favoritos', async ({ page }) => {
-    await page.goto('/detalhes.html?id=2');
+        await page.getByRole('button', { name: /adicionar aos favoritos/i }).click();
 
-    const addButton = page.getByRole('button', { name: /adicionar aos favoritos/i });
-    if (await addButton.isVisible().catch(() => false)) {
-      page.once('dialog', async dialog => {
-        console.log('Add favorite before list alert:', dialog.message());
-        await dialog.accept();
-      });
+        const removeButton = page.getByRole('button', { name: /remover dos favoritos/i });
+        await expect(removeButton).toBeVisible();
 
-      await addButton.click();
-    }
+        page.once('dialog', async dialog => {
+            console.log('Remove favorite alert:', dialog.message());
+            expect(dialog.message()).toMatch(/removido|favoritos/i);
+            await dialog.accept();
+        });
 
-    await page.goto('/favoritos.html');
+        await removeButton.click();
 
-    console.log('Favoritos page URL:', page.url());
+        await expect(page.getByRole('button', { name: /adicionar aos favoritos/i })).toBeVisible();
 
-    const bodyText = await page.locator('body').textContent();
-    console.log('Favoritos page body:', bodyText);
+        console.log('Favorite removed and button returned to add');
+    });
 
-    await expect(page.locator('body')).toContainText(/favoritos|clean code|harry potter/i);
-  });
+    test('CT-FE-013 - Listar livros favoritos', async ({ page, request }) => {
+        const createdBook = await createBook(request);
+
+        await page.goto(`/detalhes.html?id=${createdBook.id}`);
+
+        page.once('dialog', async dialog => {
+            console.log('Add favorite before list alert:', dialog.message());
+            await dialog.accept();
+        });
+
+        await page.getByRole('button', { name: /adicionar aos favoritos/i }).click();
+        await expect(page.getByRole('button', { name: /remover dos favoritos/i })).toBeVisible();
+
+        await page.goto('/favoritos.html');
+
+        console.log('Favoritos page URL:', page.url());
+
+        const bodyText = await page.locator('body').textContent();
+        console.log('Favoritos page body:', bodyText);
+
+        await expect(page.locator('body')).toContainText(createdBook.nome);
+        await expect(page.locator('body')).toContainText(createdBook.autor);
+    });
 });
