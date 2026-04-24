@@ -44,8 +44,8 @@ Antes de correr os testes, garantir que tens:
 ### 1. Clonar o repositório
 
 ```bash
-git clone <repo-url>
-cd <project-folder>
+git clone https://github.com/Schatrax/crud-livros-expandido-playwright
+cd crud-livros-expandido-playwright
 ```
 
 ### 2. Instalação
@@ -69,10 +69,8 @@ npm start
 ```
 
 A aplicação deve ficar disponível em:
-http://localhost:3000
-
-Swagger:
-http://localhost:3000/api-docs
+- **App:** <http://localhost:3000>
+- **Swagger:** <http://localhost:3000/api-docs>
 
 ### 4. Configuração do Playwright
 O ficheiro playwright.config.js deve ter o baseURL configurado para:
@@ -111,10 +109,14 @@ tests/
 
 ### 6. Como correr os testes
 
-Correr todos:
+Correr todos os testes em headless mode:
 
 ```bash
 npx playwright test
+```
+
+Correr com a interface gráfica do Playwright (ideal para debug):
+```bash
 npx playwright test --ui
 ```
 
